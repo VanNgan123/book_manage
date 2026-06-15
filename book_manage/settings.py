@@ -12,24 +12,60 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR / ".env", override=True)
 
+
+def env(name, default=None, *fallback_names):
+    value = os.getenv(name)
+    if value not in (None, ""):
+        return value
+
+    for fallback_name in fallback_names:
+        value = os.getenv(fallback_name)
+        if value not in (None, ""):
+            return value
+
+    return default
+
+
+def csv_env(name, default=None, *fallback_names):
+    raw_value = env(name, None, *fallback_names)
+    if raw_value in (None, ""):
+        return default
+
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-m=g@j3mpb0u50i5!3xya#uhj%w9b^t8&^rcnwi@ur-l08b#h^1')
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    os.getenv("SECRET_KEY", "django-insecure-local-fallback-key")
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',') if os.getenv('ALLOWED_HOSTS') else []
+CORS_ALLOWED_ORIGINS = csv_env(
+    'CORS_ALLOWED_ORIGINS',
+    [
+        'http://127.0.0.1:5173',
+        'http://localhost:5173',
+    ],
+)
+CSRF_TRUSTED_ORIGINS = csv_env(
+    'CSRF_TRUSTED_ORIGINS',
+    [
+        'http://127.0.0.1:5173',
+        'http://localhost:5173',
+    ],
+)
 
 
 # Application definition
@@ -41,6 +77,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'book',
     'rest_framework',
     'rest_framework_simplejwt',
@@ -49,6 +86,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -81,16 +119,16 @@ WSGI_APPLICATION = 'book_manage.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
-        'NAME': os.getenv('DB_NAME', 'book_manage_db'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'OPTIONS': {
-            'charset': os.getenv('DB_CHARSET', 'utf8mb4'),
-        }
+    "default": {
+        "ENGINE": env("DB_ENGINE", "django.db.backends.mysql", "MYSQL_ENGINE"),
+        "NAME": env("DB_NAME", None, "MYSQL_DATABASE"),
+        "USER": env("DB_USER", None, "MYSQL_USER"),
+        "PASSWORD": env("DB_PASSWORD", None, "MYSQL_PASSWORD"),
+        "HOST": env("DB_HOST", "127.0.0.1", "MYSQL_HOST"),
+        "PORT": env("DB_PORT", "3306", "MYSQL_PORT"),
+        "OPTIONS": {
+            "charset": env("DB_CHARSET", "utf8mb4", "MYSQL_CHARSET"),
+        },
     }
 }
 

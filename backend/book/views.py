@@ -2,10 +2,10 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from book.filters import filter_books
-from book.models import Book
-from book.pagination import BookPagination
-from book.serializers import BookSerializer
+from backend.book.filters import filter_books
+from backend.book.models import Book
+from backend.book.pagination import BookPagination
+from backend.book.serializers import BookSerializer
 
 
 class BookViewSet(viewsets.ModelViewSet):

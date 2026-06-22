@@ -2,7 +2,7 @@ function formatCurrency(value) {
   return new Intl.NumberFormat('vi-VN').format(value);
 }
 
-function BookTable({ books, onDetail, onEdit, onDelete }) {
+function BookTable({ books, onDetail, onEdit, onDelete, actionLoading }) {
   if (books.length === 0) {
     return <div className="empty-state">Không có sách phù hợp.</div>;
   }
@@ -32,14 +32,24 @@ function BookTable({ books, onDetail, onEdit, onDelete }) {
               <td>{book.published_date || '-'}</td>
               <td>
                 <div className="row-actions">
-                  <button type="button" className="secondary" onClick={() => onDetail(book.id)}>
-                    Detail
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => onDetail(book.id)}
+                    disabled={Boolean(actionLoading)}
+                  >
+                    {actionLoading?.type === 'detail' && actionLoading.id === book.id ? 'Loading...' : 'Detail'}
                   </button>
-                  <button type="button" className="secondary" onClick={() => onEdit(book)}>
-                    Edit
+                  <button type="button" className="secondary" onClick={() => onEdit(book)} disabled={Boolean(actionLoading)}>
+                    {actionLoading?.type === 'edit' && actionLoading.id === book.id ? 'Loading...' : 'Edit'}
                   </button>
-                  <button type="button" className="danger" onClick={() => onDelete(book)}>
-                    Delete
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => onDelete(book)}
+                    disabled={Boolean(actionLoading)}
+                  >
+                    {actionLoading?.type === 'delete' && actionLoading.id === book.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
               </td>

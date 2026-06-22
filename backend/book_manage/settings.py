@@ -81,7 +81,7 @@ INSTALLED_APPS = [
     'book',
     'rest_framework',
     'rest_framework_simplejwt',
-    'drf_spectacular',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -118,19 +118,29 @@ WSGI_APPLICATION = 'book_manage.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": env("DB_ENGINE", "django.db.backends.mysql", "MYSQL_ENGINE"),
-        "NAME": env("DB_NAME", None, "MYSQL_DATABASE"),
-        "USER": env("DB_USER", None, "MYSQL_USER"),
-        "PASSWORD": env("DB_PASSWORD", None, "MYSQL_PASSWORD"),
-        "HOST": env("DB_HOST", "127.0.0.1", "MYSQL_HOST"),
-        "PORT": env("DB_PORT", "3306", "MYSQL_PORT"),
-        "OPTIONS": {
-            "charset": env("DB_CHARSET", "utf8mb4", "MYSQL_CHARSET"),
-        },
+database_engine = env("DB_ENGINE", "django.db.backends.mysql", "MYSQL_ENGINE")
+
+if database_engine == "django.db.backends.sqlite3":
+    DATABASES = {
+        "default": {
+            "ENGINE": database_engine,
+            "NAME": env("DB_NAME", BASE_DIR / "db.sqlite3"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": database_engine,
+            "NAME": env("DB_NAME", None, "MYSQL_DATABASE"),
+            "USER": env("DB_USER", None, "MYSQL_USER"),
+            "PASSWORD": env("DB_PASSWORD", None, "MYSQL_PASSWORD"),
+            "HOST": env("DB_HOST", "127.0.0.1", "MYSQL_HOST"),
+            "PORT": env("DB_PORT", "3306", "MYSQL_PORT"),
+            "OPTIONS": {
+                "charset": env("DB_CHARSET", "utf8mb4", "MYSQL_CHARSET"),
+            },
+        }
+    }
 
 
 # Password validation

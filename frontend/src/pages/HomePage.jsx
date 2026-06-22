@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import axiosClient from '../api/axiosClient';
 import BookDetail from '../components/BookDetail';
@@ -34,19 +34,30 @@ function readBookDetail(responseData) {
 
 function HomePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPage = Math.max(1, Number(searchParams.get('page')) || 1);
+  const initialPageSize = [10, 20, 50, 100].includes(Number(searchParams.get('page_size')))
+    ? Number(searchParams.get('page_size'))
+    : 20;
+  const initialFilters = {
+    title: searchParams.get('title') || '',
+    author: searchParams.get('author') || '',
+  };
 
   const [books, setBooks] = useState([]);
   const [selectedBook, setSelectedBook] = useState(null);
   const [modalMode, setModalMode] = useState(null);
   const [formData, setFormData] = useState(emptyBookForm);
   const [editingId, setEditingId] = useState(null);
-  const [filters, setFilters] = useState({ title: '', author: '' });
-  const [appliedFilters, setAppliedFilters] = useState({ title: '', author: '' });
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [filters, setFilters] = useState(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+  const [page, setPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [pagination, setPagination] = useState({ count: 0, next: null, previous: null, totalPages: 1 });
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [savingBook, setSavingBook] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
 
   const closeModal = () => {
@@ -98,6 +109,15 @@ function HomePage() {
     fetchBooks();
   }, [fetchBooks]);
 
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('page_size', String(pageSize));
+    if (appliedFilters.title) params.set('title', appliedFilters.title);
+    if (appliedFilters.author) params.set('author', appliedFilters.author);
+    setSearchParams(params, { replace: true });
+  }, [appliedFilters, page, pageSize, setSearchParams]);
+
   const handleFilterSubmit = (event) => {
     event.preventDefault();
     setPage(1);
@@ -143,8 +163,11 @@ function HomePage() {
       setFormData(emptyBookForm);
       setEditingId(null);
       closeModal();
-      setPage(1);
-      await fetchBooks();
+      if (page === 1) {
+        await fetchBooks();
+      } else {
+        setPage(1);
+      }
     } catch (requestError) {
       const apiErrors = requestError.response?.data?.errors || requestError.response?.data;
       setError(typeof apiErrors === 'string' ? apiErrors : JSON.stringify(apiErrors || 'Không thể lưu sách.'));
@@ -155,6 +178,7 @@ function HomePage() {
 
   const handleDetail = async (bookId) => {
     setError('');
+    setActionLoading({ type: 'detail', id: bookId });
 
     try {
       const response = await axiosClient.get(`/books/${bookId}/`);
@@ -162,22 +186,34 @@ function HomePage() {
       setModalMode('detail');
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể lấy chi tiết sách.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleEdit = (book) => {
-    setEditingId(book.id);
-    setFormData({
-      title: book.title || '',
-      author: book.author || '',
-      price: String(book.price ?? ''),
-      quantity: String(book.quantity ?? ''),
-      published_date: book.published_date || '',
-    });
-
-    setSelectedBook(book);
-    setModalMode('edit');
+  const handleEdit = async (book) => {
+    setActionLoading({ type: 'edit', id: book.id });
     setError('');
+
+    try {
+      const response = await axiosClient.get(`/books/${book.id}/`);
+      const latestBook = readBookDetail(response.data);
+
+      setEditingId(latestBook.id);
+      setFormData({
+        title: latestBook.title || '',
+        author: latestBook.author || '',
+        price: String(latestBook.price ?? ''),
+        quantity: String(latestBook.quantity ?? ''),
+        published_date: latestBook.published_date || '',
+      });
+      setSelectedBook(latestBook);
+      setModalMode('edit');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Không thể tải dữ liệu để chỉnh sửa.');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -193,6 +229,9 @@ function HomePage() {
       return;
     }
 
+    setActionLoading({ type: 'delete', id: book.id });
+    setError('');
+
     try {
       await axiosClient.delete(`/books/${book.id}/`);
 
@@ -203,13 +242,25 @@ function HomePage() {
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể xóa sách.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    navigate('/login', { replace: true });
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    try {
+      if (refreshToken) {
+        await axiosClient.post('/logout/', { refresh: refreshToken });
+      }
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      navigate('/login', { replace: true });
+      setLoggingOut(false);
+    }
   };
 
   const accessToken = localStorage.getItem('accessToken');
@@ -228,8 +279,8 @@ function HomePage() {
             Thêm sách
           </button>
           <span className="token-pill">{accessToken ? 'Authenticated' : 'Guest'}</span>
-          <button type="button" className="secondary" onClick={handleLogout}>
-            Logout
+          <button type="button" className="secondary" onClick={handleLogout} disabled={loggingOut}>
+            {loggingOut ? 'Đang đăng xuất...' : 'Logout'}
           </button>
         </div>
       </header>
@@ -257,12 +308,19 @@ function HomePage() {
         {loadingBooks ? (
           <div className="empty-state">Đang tải dữ liệu...</div>
         ) : (
-          <BookTable books={books} onDetail={handleDetail} onEdit={handleEdit} onDelete={handleDelete} />
+          <BookTable
+            books={books}
+            onDetail={handleDetail}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            actionLoading={actionLoading}
+          />
         )}
 
         <Pagination
           currentPage={page}
           totalPages={pagination.totalPages}
+          hasNext={Boolean(pagination.next)}
           hasPrevious={Boolean(pagination.previous)}
           onPageChange={setPage}
         />
@@ -277,7 +335,7 @@ function HomePage() {
         onClose={handleCancelEdit}
         onSubmit={handleBookSubmit}
         onEdit={handleEdit}
-        loading={savingBook}
+        loading={savingBook || actionLoading?.type === 'edit'}
       />
     </main>
   );

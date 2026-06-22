@@ -35,8 +35,8 @@ function BookDetail({
           </div>
           <div className="row-actions">
             {isDetailMode && book ? (
-              <button type="button" onClick={() => onEdit(book)}>
-                Sửa
+              <button type="button" onClick={() => onEdit(book)} disabled={loading}>
+                {loading ? 'Đang tải...' : 'Sửa'}
               </button>
             ) : null}
             <button type="button" className="secondary" onClick={onClose}>

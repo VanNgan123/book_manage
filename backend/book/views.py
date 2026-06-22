@@ -1,11 +1,36 @@
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from backend.book.filters import filter_books
-from backend.book.models import Book
-from backend.book.pagination import BookPagination
-from backend.book.serializers import BookSerializer
+from book.filters import filter_books
+from book.models import Book
+from book.pagination import BookPagination
+from book.serializers import BookSerializer
+
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+        if not refresh_token:
+            return Response(
+                {"message": "Refresh token là bắt buộc."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            RefreshToken(refresh_token).blacklist()
+        except TokenError:
+            return Response(
+                {"message": "Refresh token không hợp lệ hoặc đã hết hạn."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"message": "Đăng xuất thành công."})
 
 
 class BookViewSet(viewsets.ModelViewSet):

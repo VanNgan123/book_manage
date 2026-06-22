@@ -23,7 +23,9 @@ function BookFilter({ filters, setFilters, pageSize, onPageSizeChange, onSubmit,
       <label>
         <span>Page size</span>
         <select value={pageSize} onChange={(event) => onPageSizeChange(Number(event.target.value))}>
+          <option value={10}>10 record</option>
           <option value={20}>20 record</option>
+          <option value={50}>50 record</option>
           <option value={100}>100 record</option>
         </select>
       </label>
